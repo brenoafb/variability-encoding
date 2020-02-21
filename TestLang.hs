@@ -70,22 +70,22 @@ main = do
     return ()
   else do
     let formulaFile = head args
-        valueFiles = tail args
+        valueFiles = tail $ init args
+        outputFile = last args
     formulas <- readFile formulaFile
     assignments <- traverse readFile valueFiles
     let alf = getExpAL formulas
-        mexp = M.fromList alf
-        order@(h:_) = Prelude.reverse $ map fst alf
-        Just e = M.lookup h mexp
-        e' = loop order mexp e
-        --
+        e = getITE alf
         alas = map (\s -> getAL' s (\x -> read x :: Int)) assignments
-        mvals = map M.fromList alas
-        rs = map (eval e') mvals
-    mapM_ print rs
+        rs = map (eval e . M.fromList) alas
+        str = unlines $ map show rs
+    writeFile outputFile str
 
-fromIdent :: Ident -> String
-fromIdent (Ident s) = s
+getITE :: [(String,Exp)] -> Exp
+getITE al = let mexp = M.fromList al
+                order@(h:_) = Prelude.reverse $ map fst al
+                Just e = M.lookup h mexp
+            in loop order mexp e
 
 loop :: [String] -> M.Map String Exp -> Exp -> Exp
 loop [] m e = e
@@ -93,6 +93,10 @@ loop (v:vs) m e = loop vs m $ substitute e v $ ite' v s
   where Just s = M.lookup v m
         ite' x e = EAdd (EMul (EVar (Ident x)) e)
                        (ESub (EInt 1) (EVar (Ident x)))
+
+
+fromIdent :: Ident -> String
+fromIdent (Ident s) = s
 
 -- return the variables that a expression depends on
 getVariables :: Exp -> S.Set String
